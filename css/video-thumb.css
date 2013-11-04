@@ -1,0 +1,32 @@
+.video-thumb > a{
+display:block;
+height:100%;
+width:100%;
+}
+
+.video-thumb > a > span {
+display:block;
+	width:100px;
+	height:100px;
+	background: white;
+	-moz-border-radius: 50px;
+	-webkit-border-radius: 50px;
+	border-radius: 50px;
+	position: relative;
+	top: -63%;
+	left: 39%;
+}
+
+
+.video-thumb > a > span:after {
+content:"";
+   	width: 0;
+	height: 0;
+	border-top: 30px solid transparent;
+	border-left: 60px solid #444444;
+	border-bottom: 30px solid transparent;
+	position: absolute;
+	top: 20px;
+	left: 29px;
+}
+

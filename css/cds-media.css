@@ -1,0 +1,258 @@
+.attachment-preview.type-cds-video{
+	overflow:hidden;
+}
+.attachment .icon {
+	padding-top:0;
+}
+.attachment .type-cds-video .icon {
+	width: auto;
+	height: 100%;
+}
+.media-sidebar .cdsvideo-details h3{
+	margin:0px 0 8px;
+}
+.media-sidebar .cdsvideo-details .setting span{
+	margin-right:1%;
+}
+.cdsvideo-details{
+	height: 100%;
+}
+
+.tabs {
+	position: relative;   
+  	min-height: 200px; /* This part sucks */
+  	clear: both;
+  	margin: 25px 0;
+}
+.tab {
+	float: left;
+}
+.tab label.tab_label {
+  	background: #eee; 
+  	padding: 10px; 
+  	border: 1px solid #ccc; 
+  	margin-left: -1px; 
+  	position: relative;
+  	left: 1px; 
+}
+.tab .tab_radio {
+  display: none;   
+}
+.cds-content {
+	height: 370px;
+	position: absolute;
+  	top: 28px;
+  	left: 0;
+	display:none;
+  	background: white;
+  	right: 0;
+  	bottom: 0;
+  	padding: 20px;
+  	border: 1px solid #ccc; 
+}
+
+.rcmd-content {
+	position: absolute;
+  	top: 28px;
+  	left: 0;
+	display:none;
+  	right: 0;
+  	bottom: 0;
+  	padding: 20px;
+}
+
+.rcmd-title{
+	margin-top:10px !important;
+}
+.rcmd{
+	
+	list-style: none;
+	background: white;
+	border: 1px solid #ccc;
+	padding: 10px 10px 10px 10px;
+	width: 230px;
+	position: relative;
+	left: -20px;
+	top: -20px;
+}
+
+
+
+
+[type=radio]:checked ~ label.tab_label {
+  	background: white;
+  	border-bottom: 1px solid white;
+  	z-index: 2;
+}
+[type=radio]:checked ~ label.tab_label ~ .content {
+  	z-index: 1;
+	display:block;
+}
+[type=radio]:checked ~ label.tab_label ~.rcmd-content {
+  	z-index: 1;
+	display:block;
+}
+
+
+.media-sidebar .setting span.video_sq{
+	float:none;
+	margin-left:3%;
+}
+.video_sq input[type="radio"]{
+	float:left;
+}
+.videoQualitySelection{
+	height: 120px;
+	border-bottom:1px solid #CCCCCC;
+}
+
+/*.tabs{
+	height:100%;
+}
+
+.content{
+	height:auto;
+}
+	*/
+
+playerTab {
+/*	background: orange;*/
+	line-height:20px;
+}
+
+#playerTab h4{
+	font-size: 14px;
+}
+
+.widthDim, .heightDim{
+	width:50px;
+	height:18px;
+}
+
+.extraFeature p{
+	line-height:18px;
+}
+
+.recommendation{
+
+}
+
+.recommendRow{
+	width:220px;
+	margin: 1px 0;
+	float: left;
+	padding: 10px 0;
+	background: #EBEBEB;
+	margin: 5px 0;
+}
+
+.recommendRow h4{
+	margin: 0 0 0 8px;
+	float: left;
+	width:100px;
+	
+}
+
+.recommendRow img{
+	float: left;
+	width:80px;
+	margin-left:8px;
+}
+
+.clearFix:after {
+	clear: both;
+	display: table;
+	content:"";
+}
+
+.recommendCheckbox{
+	float: right; 
+/*	margin-top:12px;*/
+	margin-right: 10px !important;
+}
+
+
+
+
+
+
+
+/* pending, started, completed, successfully, failed */
+#item-transcoding input.status-refresh{
+	margin:5px;
+}
+#item-transcoding .transcoding-row{
+	padding:5px;
+	height:20px;
+}
+#item-transcoding .status,
+#item-transcoding .transcoding-row h4 {
+	display:inline;
+}
+#item-transcoding .status.successfully{
+	color:green;
+}
+#item-transcoding .status.completed,
+#item-transcoding .status.started,
+#item-transcoding .status.successfully:before,
+#item-transcoding .status.pending{
+	color:blue;
+}
+#item-transcoding .status.failed{
+	color:#A00000;
+}
+#item-transcoding a,
+#item-transcoding span{
+	vertical-align:top;
+}
+
+/*
+#item-transcoding .status.completed:before {
+	content:'✔';
+	color:green;
+	font-size:20px;
+	margin:3px;
+}
+#item-transcoding .status.pending:before{
+	color:blue;
+	content:'😐';
+	font-size:16px;
+	margin:3px;
+}
+#item-transcoding .status.started:before{
+	color:#CC6600;
+	content:'☺';
+	font-size:25px;
+}
+#item-transcoding .status.failed:before{
+	color:#A00000;
+	content:'✘';
+	font-size:20px;
+	margin:3px;
+}
+*/
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

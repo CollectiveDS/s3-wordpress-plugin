@@ -10,14 +10,25 @@
 require_once dirname( __FILE__ ) . '/aws/aws-sdk-php/vendor/autoload.php';
 use Aws\Common\Aws;
 use Aws\S3\Exception\S3Exception;
+use Aws\S3\S3Client;
 
 add_action( 'widgets_init', 'my_widget' );
+
+
 
 function my_widget() {
   register_widget( 'MY_Widget' );
 }
 
 class MY_Widget extends WP_Widget {
+  static function cds_log($text)
+     {
+      $when = date('Y-m-d H:i:s',time());
+      $data = "$when:$text\n";
+      $fyle = fopen('/tmp/cds-upload.log','a');
+      fwrite($fyle,$data);
+      fclose($fyle);
+    }
 
   function MY_Widget() {
     $widget_ops = array( 'classname' => 'example', 'description' => __('A widget that displays the authors name ', 'example') );
@@ -27,8 +38,12 @@ class MY_Widget extends WP_Widget {
     $this->WP_Widget( 'example-widget', __('Example Widget', 'example'), $widget_ops, $control_ops );
 
     add_action('init', array($this, 'widget_init') );
+    add_action( 'wp_ajax_nopriv_upload_to_s3', array($this, 'upload_to_s3'), 1 );
+
 
   }
+
+   
 
   function widget_init(){
     wp_register_style( 'mediaStylesheet', plugins_url('css/cds-media.css', __FILE__) );
@@ -46,9 +61,64 @@ class MY_Widget extends WP_Widget {
               'after_title' => '');
       register_sidebar($args);
 
-
-
   }
+
+  function upload_to_s3()
+  {
+    self::cds_log('uppppppload to s3');
+    self::cds_log('file-size' . $_GET["filesize"]);
+    self::cds_log('OfileSize' . $_FILES["Filedata"]["size"]);
+    self::cds_log('name' . $_FILES["Filedata"]["name"]);
+    
+    self::cds_log('api call to S3');
+
+    $aws = Aws::factory(dirname( __FILE__ ) . '/aws/aws-config.php');
+    $client = $aws->get('S3');
+    $msg = array();
+
+      // $client = S3Client::factory(array(
+      //   'key' => 'AKIAIFCPGC4N3CVFU2KA',
+      //   'secret' => 'pUFnEXFPX5gLDeNKOQ/lLZMNg1sDSIdXxMJccR3Q',
+      // ));
+
+      // $handle = fopen('/tmp/sample_mpeg4.mp4', 'r');
+      // var_dump($handle);die;
+
+
+      // Upload a publicly accessible file. The file size, file type, and MD5 hash are automatically calculated by the SDK
+      
+      try {
+          $client->putObject(array(
+              'Bucket' => 'cds-campaign',
+              'Key'    => $_FILES["Filedata"]["name"],
+              // 'Body'   => fopen('/tmp/sample_mpeg4.mp4', 'r'),
+              'Body'   => fopen($_FILES["Filedata"]["tmp_name"], 'r'),
+              // 'SourceFile' => $_FILES["Filedata"]["tmp_name"],
+              'ACL'    => 'public-read',
+          ));
+       self::cds_log('api call to S3 - 2');
+
+      } catch (S3Exception $e) {
+        self::cds_log($e);
+        self::cds_log('error s3 putobject');
+        $msg["error"] = "S3 Exception";
+        // echo "There was an error uploading the file.\n";
+      } catch(Exception $e){
+        $msg["error"] = "exception";
+      }
+
+      self::cds_log('finish api call s3');
+
+      // $msg = 'success';
+      // $msg = $_GET['filename'];
+      // $msg["filename"] = $_GET['filename']["size"];
+      $msg["msg"] = "success";
+      // $msg["handle"] = fopen($_FILES["Filedata"]["tmp_name"], r);
+      // $msg = json_encode($_FILES["Filedata"]["tmp_name"]);
+      wp_send_json_success( $msg );
+      unlink($_FILES["Filedata"]["name"]);   
+  }
+
   
   function widget( $args, $instance ) {
     extract( $args );
@@ -75,341 +145,83 @@ class MY_Widget extends WP_Widget {
     
     // echo $after_widget;
     ?>
-    <div class="container">
-        <div class="contr">
-          <h1>Upload New CDS Video</h1>
-          <p>or if you already have a video uploaded you can provide the URL here: <input type="button" value="click here" onclick="location.href='/wp-admin/post-new.php?post_type=cdsvideo';"> </p>
-        </div>
-        <div class="upload_form_cont">
-          <?php if ( $can_edit_files ){ ?>
-          <select>
-            <option value="">Community (Default)</option>
-            <?php
-              $cds_options = get_option( 'cds_options' );
-              $counter = 0;
-              $selected = true;
-              if (empty($cds_options['option_accounts'])) {
-                $cds_options['option_accounts'] = array();
-              }
-              foreach ($cds_options['option_accounts'] as $counter=>$user_name){
-                ?>
-                  <option <?php echo ($selected ? 'selected' : '') ?> value="<?php echo esc_attr( $cds_options['option_accounts'][$counter] ); ?>"><?php echo esc_attr( $cds_options['option_accounts'][$counter] ); ?></option>
-                <?php
-                $selected = false;
-              }
-            ?>
-          </select>
-          <?php } ?>
+<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.10.1/jquery.min.js"></script>
+<script src="http://malsup.github.com/jquery.form.js"></script>
+    <form id="myForm" action="wp-admin/admin-ajax.php?action=upload_to_s3" method="post" enctype="multipart/form-data">
+     <input type="file" size="60" name="Filedata">
+     <input type="submit" value="Ajax File Upload">
+ </form>
+ 
+ <div id="progress">
+        <div id="bar"></div>
+        <div id="percent">0%</div >
+</div>
+<br/>
+ 
+<div id="message"></div>
+<script>
+$(document).ready(function()
+{
+ 
+    var options = { 
+    beforeSend: function() 
+    {
+        $("#progress").show();
+        //clear everything
+        $("#bar").width('0%');
+        $("#message").html("");
+        $("#percent").html("0%");
+    },
+    uploadProgress: function(event, position, total, percentComplete) 
+    {
+        $("#bar").width(percentComplete+'%');
+        
+        console.log(percentComplete);
+        if(percentComplete > 98)
+        {
+          $("#percent").html('Finishing upload');
+          $("#bar").width('99%');
+        }
+        else 
+        {
+          $("#percent").html(percentComplete+'%');
+          $("#bar").width(percentComplete+'%');
+        }
+    },
+    success: function(response) 
+    {
+        $("#bar").width('100%');
+        $("#percent").html('Upload Complete');
+ 
+    },
+    complete: function(response) 
+    {
+     console.log(response.responseText);
+     var r = $.parseJSON(response.responseText);
+        if(r.data.msg == "success")
+          $("#message").html("<font color='green'>"+ r.data.msg +"</font>");
+        else
+          $("#message").html("<font color='green'>Upload fail. Please try again</font>");
+    },
+    error: function()
+    {
+        $("#message").html("<font color='red'> ERROR: unable to upload files</font>");
+    }
+ 
+    }; 
+ 
+     $("#myForm").ajaxForm(options);
+ 
+});
+</script>
 
-
-          <div id="dropArea">Drop Files Here
-            <div id="selectFileArea" >
-              <small id="orText">or</small>
-              <input id="fileSelect" class="button" type="button" value="Select File" />
-              <input id="myInput" type="file"  style="visibility:hidden" />
-
-            </div>
-          </div>
-          <div class="info">
-            <div style="display:none;">Files left: <span id="count">0</span></div>
-             <div style="display:none">Destination url: <input id="url" value="http://akupload.metacafe.com/uploads/87914/1234/"/></div>
-            <h2>Result:</h2>
-            <div id="result"></div>
-          </div>
-        </div>
-      </div>
-      <script>
-        // variables
-        var dropArea = document.getElementById('dropArea');
-        var count = document.getElementById('count');
-        var destinationUrl = document.getElementById('url');
-        var result = document.getElementById('result');
-        var list = [];
-        var totalSize = 0;
-        var totalProgress = 0;
-
-        var uploadInProgress = false;
-
-        //counter for counting the number of files that's been uploaded
-        var counter = 0;
-
-        // main initialization
-        (function(){
-
-          var percentText = jQuery('#percentage');
-
-           //handles the file select option
-          jQuery('#fileSelect').click(function(){
-
-            if(!uploadInProgress){
-
-              jQuery('#myInput').change(function(){
-                processFiles(this.files);
-
-                jQuery(this).replaceWith('<input id="myInput" type="file"  style="visibility:hidden" />');
-              });
-
-              jQuery('#myInput').click();
-            }else{
-              this.attr("disabled");
-            }
-          });
-
-
-
-          // init handlers
-          function initHandlers() {
-            dropArea.addEventListener('drop', handleDrop, false);
-            dropArea.addEventListener('dragover', handleDragOver, false);
-            dropArea.addEventListener('dragleave', handleDragLeave, false);
-          }
-
-          // draw progress
-          function drawProgress(progress) {
-            var canvs = jQuery('.progressBar').last();
-            var context = canvs[0].getContext('2d');
-
-            //fill with white canvas
-            context.clearRect(0, 0, canvs.width, canvs.height); // clear context
-            context.beginPath();
-            context.strokeStyle = '#EEEEEE';
-            context.fillStyle = '#EEEEEE';
-            context.fillRect(0, 0, 1 * 460, 20);
-            context.closePath();
-
-            //fill with green progress bar
-            context.clearRect(0, 0, canvs.width, canvs.height); // clear context
-            context.beginPath();
-            context.strokeStyle = '#73E069';
-            context.fillStyle = '#73E069';
-            context.fillRect(0, 0, progress * 460, 20);
-            context.closePath();
-            //context.fillText('                                          ', 50, 15);
-            //context.font = '16px Verdana';
-            //context.fillStyle = '#000';
-            //context.fillText('Progress: ' + Math.floor(progress*100) + '%', 50, 15);
-
-            jQuery('.percent' + counter).text(Math.floor(progress*100) + '%');
-
-          }
-
-          // drag over
-          function handleDragOver(event) {
-            event.stopPropagation();
-            event.preventDefault();
-
-            if(!uploadInProgress)
-              dropArea.className = 'hover';
-          }
-
-          // drag drop
-          function handleDrop(event) {
-            event.stopPropagation();
-            event.preventDefault();
-
-            if(!uploadInProgress)
-              processFiles(event.dataTransfer.files);
-          }
-
-          function handleDragLeave(event){
-            dropArea.className = '';
-          }
-
-          // process bunch of files
-          function processFiles(filelist) {
-            if (!filelist || !filelist.length || list.length) return;
-
-            totalSize = 0;
-            totalProgress = 0;
-            // result.textContent = '';
-
-            for (var i = 0; i < filelist.length && i < 5; i++) {
-              list.push(filelist[i]);
-              totalSize += filelist[i].size;
-            }
-            uploadNext();
-
-          }
-
-
-          // on complete - start next file
-          function handleComplete() {
-
-            drawProgress(1);
-            uploadNext();
-          }
-
-          // update progress
-          function handleProgress(event) {
-            var progress = totalProgress + event.loaded;
-
-            if((progress / totalSize) > 0.01)
-              drawProgress(progress / totalSize - 0.01);
-            else
-              drawProgress(progress / totalSize);
-          }
-
-          // upload file
-          function uploadFile(file, status, index) {
-            //get user from selected option
-            var user = jQuery('select option:selected').length ? jQuery('select option:selected').val() : '';
-
-            jQuery.ajax({
-              url: '/wp-admin/admin-ajax.php',
-              data: {
-                cds_user_id: user,
-                action: 'get_cds_upload_folder',
-              },
-              cache: false,
-              type: 'GET',
-              success: function(response){
-                if (response.data){
-
-                  jQuery('.info').show();
-                  upload_cds_file_to_storage(response.data.uploadFolder, file);
-
-                } else {
-
-                  alert("Something went wrong, please try again later (error: get cds upload folder API");
-                }
-              }
-            });
-          }
-
-          function upload_cds_file_to_storage(folder, file){
-            var fileName = file.name;
-            var uploadFileURL = folder + fileName;
-            var isError = false;
-            var data = new FormData();
-            data.append( 'Filedata', file );
-
-            jQuery.ajax({
-              url: uploadFileURL,
-              data: data,
-              cache: false,
-              contentType: false,
-              processData: false,
-              type: 'POST',
-              success: function(data){  },
-              beforeSend: function(xhr){
-                uploadInProgress = true;
-                jQuery("<div class='fileContainer'><div style='width:500px'><p style='float:left'>" + fileName + "</p><p class='editLink" + counter + "' style='float: right'></p></div><div style='clear:both'></div><canvas class='progressBar' width='460' height='20'></canvas><span id='percentage' class='percent"+ counter + "'></span></div>").appendTo('#result');
-              },
-              xhr: function(){
-                  var xhr = new window.XMLHttpRequest();
-                  //Upload progress
-                  xhr.upload.addEventListener("progress", function(evt){
-                  if (evt.lengthComputable) {
-                    var percentComplete = evt.loaded / evt.total;
-                    //Do something with upload progress
-                    handleProgress(evt);
-                   }
-                 }, false);
-                 //Download progress
-                 xhr.addEventListener("progress", function(evt){
-                   if (evt.lengthComputable) {
-                   var percentComplete = evt.loaded / evt.total;
-                    //handleProgress(evt);
-                   }
-                 }, false);
-                 return xhr;
-              },
-              error: function(jqXHR, textStatus, errorThrown){
-                isError = true;
-                jQuery('.fileContainer').remove();
-                alert('Error occurred, please try again' );
-
-                uploadInProgress = false;
-                return;
-              },
-              complete: function(data){
-                 if(!isError){
-                   getCDSItemID(uploadFileURL, name[0]);
-                   drawProgress(0.99);
-                   uploadInProgress = false;
-
-                }
-              }
-            });
-          }
-
-          function getCDSItemID(uploadFileURL, fileName){
-            if (uploadFileURL){
-              var data = new FormData();
-              data.append( 'fileURL', uploadFileURL );
-
-              //get user from selected option
-              var user = jQuery('select option:selected').length ? jQuery('select option:selected').val() : '';
-
-              jQuery.ajax({
-                url: '/wp-admin/admin-ajax.php?action=get_cdsvideo_item_id&cds_user_id=' + user,
-                data: data,
-                cache: false,
-                contentType: false,
-                processData: false,
-                type: 'POST',
-                success: function(response){
-
-                  var cdsItemID = false;
-                  if (typeof response.data != 'undefined'){
-                    var cdsItemID = response.data.itemID;
-                  }
-                  
-                  if ( !cdsItemID ){
-                    setTimeout(function(){ getCDSItemID(uploadFileURL, fileName); }, 2000);
-                  } else {
-
-                    //save itemID on wordpress
-                    jQuery.ajax({
-                      url: '/wp-admin/admin-ajax.php',    //this will call the ajax wp function
-                      dataType: "text",
-                      data: {
-                        itemID : cdsItemID,
-                        title  : fileName,
-                        action: 'save_cdsvideo_item_id',
-                      },
-                      cache: false,
-                      type: 'POST',
-                      success: function(response){
-                        if (response){
-                          drawProgress(1);
-                          var postID = jQuery.parseJSON(response);
-                          jQuery('.editLink' + counter).append('<a href="/wp-admin/post.php?post=' + postID.data + '&action=edit">edit</a>');
-                          counter++;
-                          handleComplete();
-                        }
-                      },
-
-                    });
-                  }
-                }
-              });
-            }
-          }
-
-          // upload next file
-          function uploadNext() {
-            if (list.length) {
-              count.textContent = list.length - 1;
-              dropArea.className = 'uploading';
-
-              var nextFile = list.shift();
-              // if (nextFile.size >= 2621440000) { // 256kb
-              //                    result.innerHTML += '<div class="f">Too big file (max filesize exceeded)</div>';
-              //                    handleComplete(nextFile.size);
-              //                } else {
-              //                    uploadFile(nextFile, status, count.textContent);
-              //                }
-
-              uploadFile(nextFile, status, count.textContent);
-            } else {
-              dropArea.className = '';
-            }
-          }
-
-          initHandlers();
-        })();
-      </script>
+<style>
+form { display: block; margin: 20px auto; background: #eee; border-radius: 10px; padding: 15px }
+#progress { position:relative; width:400px; border: 1px solid #ddd; padding: 1px; border-radius: 3px; }
+#bar { background-color: #B4F5B4; width:0%; height:20px; border-radius: 3px; }
+#percent { position:absolute; display:inline-block; top: 0; left: 48%; }
+</style>
+   
   <?php
   }
 

@@ -91,6 +91,11 @@ jQuery(document).ready(function()
      var r = jQuery.parseJSON(response.responseText);
         if(r.data.msg == "success")
           jQuery("#message").html("<font color='green'>Upload Completed</font>");
+        else if(r.data.msg == "fail-recaptcha")
+        {
+          jQuery("#message").html("<font color='green'>Recaptcha incorrect. Try again</font>");
+          jQuery("#percent").html('Upload fail');
+        }
         else
           jQuery("#message").html("<font color='green'>Upload fail. Please try again</font>");
     },

@@ -8,6 +8,8 @@
  */
 
 require_once dirname( __FILE__ ) . '/aws/aws-sdk-php/vendor/autoload.php';
+require_once dirname( __FILE__ ) . '/recaptcha-php-1.11/recaptchalib.php';
+
 use Aws\Common\Aws;
 use Aws\S3\Exception\S3Exception;
 use Aws\S3\S3Client;
@@ -29,6 +31,9 @@ class s3_widget extends WP_Widget {
       fwrite($fyle,$data);
       fclose($fyle);
     }
+
+  private $recaptcha_public_key = "6Lcz1OkSAAAAACIhrcjwOYC8_0oJhXbevF4OKUsK";
+  private $recapthca_private_key = "6Lcz1OkSAAAAADBn_jQH20nYwNciU48vOIxdAW_X";
 
   function s3_widget() 
   {
@@ -126,6 +131,19 @@ class s3_widget extends WP_Widget {
 
   function upload_to_s3()
   {
+    //check recaptcha
+    $resp = recaptcha_check_answer ($this->recapthca_private_key,
+                                $_SERVER["REMOTE_ADDR"],
+                                $_POST["recaptcha_challenge_field"],
+                                $_POST["recaptcha_response_field"]);
+
+    if (!$resp->is_valid) {
+      // What happens when the CAPTCHA was entered incorrectly
+      $msg["msg"] = "fail-recaptcha";
+      wp_send_json_success( $msg );
+      die;
+    } 
+
     $aws = Aws::factory(dirname( __FILE__ ) . '/aws/aws-config.php');
     $client = $aws->get('S3');
     $msg = array();
@@ -134,7 +152,7 @@ class s3_widget extends WP_Widget {
       try {
           $result = $client->putObject(array(
               'Bucket' => 'cds-campaign',
-              'Key'    => $_FILES["Filedata"]["name"],
+              'Key'    => $_FILES["Filedata"]["name"] . '-' . time(),
               'Body'   => fopen($_FILES["Filedata"]["tmp_name"], 'r'),
               'ACL'    => 'private',
 
@@ -164,10 +182,10 @@ class s3_widget extends WP_Widget {
       {
         self::cds_log($e);
         self::cds_log('error s3 putobject');
-        $msg["error"] = "S3 Exception";
+        $msg["msg"] = "S3 Exception";
       } catch(Exception $e)
       {
-        $msg["error"] = "exception";
+        $msg["msg"] = "exception";
       }
 
       $msg["msg"] = "success";
@@ -200,8 +218,10 @@ class s3_widget extends WP_Widget {
       <li>Comments:</li>
       <li><textarea name="comment" id="Message" cols="30" wrap="virtual" rows="3"></textarea></li>
       <li><input type="file" size="60" name="Filedata" id="inputVideo"></li>
+      <li><div class="recaptcha"><?php echo recaptcha_get_html($this->recaptcha_public_key); ?></div></li>
       <li><input type="submit" value="Submit" id="uploadBtn"></li>
     </ul>
+    
   </form>
    
   <div id="progress">

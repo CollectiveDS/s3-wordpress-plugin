@@ -11,6 +11,7 @@ require_once dirname( __FILE__ ) . '/aws/aws-sdk-php/vendor/autoload.php';
 use Aws\Common\Aws;
 use Aws\S3\Exception\S3Exception;
 use Aws\S3\S3Client;
+use Aws\S3\Model\AcpBuilder;
 
 add_action( 'widgets_init', 'my_widget' );
 
@@ -30,7 +31,8 @@ class MY_Widget extends WP_Widget {
       fclose($fyle);
     }
 
-  function MY_Widget() {
+  function MY_Widget() 
+  {
     $widget_ops = array( 'classname' => 'example', 'description' => __('A widget that displays the authors name ', 'example') );
     
     $control_ops = array( 'width' => 300, 'height' => 350, 'id_base' => 'example-widget' );
@@ -40,10 +42,52 @@ class MY_Widget extends WP_Widget {
     add_action('init', array($this, 'widget_init') );
     add_action( 'wp_ajax_nopriv_upload_to_s3', array($this, 'upload_to_s3'), 1 );
 
-
+    //add meta box in S3 post
+    add_action( 'add_meta_boxes', array($this, 's3_meta_box_init') );
   }
 
-   
+  function s3_meta_box_init()
+  {
+    $screens = array( 's3videos');
+
+    foreach ( $screens as $screen ) {
+
+        add_meta_box(
+            's3_meta_box',
+            __( 'User Information', 'User Information' ),
+            array($this, 's3_inner_custom_box'),
+            $screen
+        );
+    }
+  }
+
+  function s3_inner_custom_box($post)
+  { 
+    //nonce for security
+    wp_nonce_field( 's3_inner_custom_box', 's3_inner_custom_box_nonce' );
+
+    $email = get_post_meta( $post->ID, '_s3_email', true );
+    $fullname = get_post_meta( $post->ID, '_s3_fullname', true );
+    $ytusername = get_post_meta( $post->ID, '_s3_ytusername', true );
+    $petname = get_post_meta( $post->ID, '_s3_petname', true );
+    $filename = get_post_meta( $post->ID, '_s3_filename', true );
+    $fileurl = get_post_meta( $post->ID, '_s3_fileurl', true );
+    $comment = get_post_meta( $post->ID, '_s3_comment', true );
+
+
+
+    ?>
+    <div>
+        <h4>Full name: <?php echo $fullname; ?></h4>
+        <h4>Email: <?php echo $email; ?></h4>
+        <h4>Youtube username: <?php echo $ytusername; ?></h4>
+        <h4>Petname: <?php echo $petname; ?></h4>
+        <h4>Comments: <?php echo $comment; ?></h4>
+        <h4>File name: <?php echo $filename; ?></h4>
+        <h4>File URL: <a href="<?php echo $fileurl ?>" target="_blank"><?php echo $fileurl; ?></a></h4>
+    </div>
+    <?php
+  }
 
   function widget_init(){
     wp_register_style( 'mediaStylesheet', plugins_url('css/cds-media.css', __FILE__) );
@@ -52,25 +96,39 @@ class MY_Widget extends WP_Widget {
     wp_register_style( 'uploadStylesheet', plugins_url('css/upload.css', __FILE__) );
     wp_enqueue_style( 'uploadStylesheet' );
 
-      $args = array('name'=>'CDS Upload',
-              'id'=>'cds-upload',
-              'description' => 'Upload CDS Video to MC Backend',
-              'before_widget' => '<div class="widget">',
-              'after_widget' => '</div>',
-              'before_title' => '',
-              'after_title' => '');
-      register_sidebar($args);
+    wp_enqueue_script( 'formUpload', plugins_url('js/form.js', __FILE__), array(), '1.0.0', true );
+    wp_enqueue_script( 'uploadjs', plugins_url('js/upload.js', __FILE__), array(), '1.0.0', true );
+
+    register_post_type( 's3videos',
+    array(
+        'labels' => array(
+          'name' => __( 'S3 Videos Uploaded' ),
+          'singular_name' => __( 'S3 Videos' )
+        ),
+      'public' => true,
+      'has_archive' => true,
+      )
+    );
+
+    $args = array('name'=>'CDS Upload',
+            'id'=>'cds-upload',
+            'description' => 'Upload CDS Video to MC Backend',
+            'before_widget' => '<div class="widget">',
+            'after_widget' => '</div>',
+            'before_title' => '',
+            'after_title' => '');
+    register_sidebar($args);
+
+    //remove editor for s3videos post
+    remove_post_type_support('s3videos', 'editor');
 
   }
 
   function upload_to_s3()
   {
-    self::cds_log('uppppppload to s3');
-    self::cds_log('file-size' . $_GET["filesize"]);
-    self::cds_log('OfileSize' . $_FILES["Filedata"]["size"]);
-    self::cds_log('name' . $_FILES["Filedata"]["name"]);
-    
-    self::cds_log('api call to S3');
+    self::cds_log($_POST["fullname"]);
+    self::cds_log($_POST["ytusername"]);
+    self::cds_log($_POST["email"]);
 
     $aws = Aws::factory(dirname( __FILE__ ) . '/aws/aws-config.php');
     $client = $aws->get('S3');
@@ -88,7 +146,7 @@ class MY_Widget extends WP_Widget {
       // Upload a publicly accessible file. The file size, file type, and MD5 hash are automatically calculated by the SDK
       
       try {
-          $client->putObject(array(
+          $result = $client->putObject(array(
               'Bucket' => 'cds-campaign',
               'Key'    => $_FILES["Filedata"]["name"],
               // 'Body'   => fopen('/tmp/sample_mpeg4.mp4', 'r'),
@@ -96,7 +154,26 @@ class MY_Widget extends WP_Widget {
               // 'SourceFile' => $_FILES["Filedata"]["tmp_name"],
               'ACL'    => 'public-read',
           ));
-       self::cds_log('api call to S3 - 2');
+       self::cds_log('result::' . $result["ObjectURL"]);
+
+       //create s3 custom post
+       $postarr = array(
+          'post_type' => 's3videos',
+          'post_status' => 'private',
+          'post_title' => $_POST["email"],
+          'post_name' => $_POST["email"],
+          'post_content' => $user->first_name,
+        );
+
+        $post_id = wp_insert_post( $postarr );
+        update_post_meta( $post_id, '_s3_email', $_POST["email"]);
+        update_post_meta( $post_id, '_s3_fullname', $_POST["fullname"]);
+        update_post_meta( $post_id, '_s3_ytusername', $_POST["ytusername"]);
+        update_post_meta( $post_id, '_s3_petname', $_POST["petname"]);
+        update_post_meta( $post_id, '_s3_filename', $_FILES["Filedata"]["name"]);
+        update_post_meta( $post_id, '_s3_fileurl', $result["ObjectURL"]);
+        update_post_meta( $post_id, '_s3_comment', $_POST["comment"]);
+
 
       } catch (S3Exception $e) {
         self::cds_log($e);
@@ -106,8 +183,6 @@ class MY_Widget extends WP_Widget {
       } catch(Exception $e){
         $msg["error"] = "exception";
       }
-
-      self::cds_log('finish api call s3');
 
       // $msg = 'success';
       // $msg = $_GET['filename'];
@@ -128,100 +203,33 @@ class MY_Widget extends WP_Widget {
     $name = $instance['name'];
     $show_info = isset( $instance['show_info'] ) ? $instance['show_info'] : false;
 
-    //echo $before_widget;
-
-    // // Display the widget title 
-    // if ( $title )
-    //  echo $before_title . $title . $after_title;
-
-    // //Display the name 
-    // if ( $name )
-    //  printf( '<p>' . __('Hey their Sailor! My name is %1$s.', 'example') . '</p>', $name );
-
-    
-    // if ( $show_info )
-    //  printf( $name );
-
-    
-    // echo $after_widget;
     ?>
-<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.10.1/jquery.min.js"></script>
-<script src="http://malsup.github.com/jquery.form.js"></script>
-    <form id="myForm" action="wp-admin/admin-ajax.php?action=upload_to_s3" method="post" enctype="multipart/form-data">
-     <input type="file" size="60" name="Filedata">
-     <input type="submit" value="Ajax File Upload">
- </form>
- 
- <div id="progress">
+<div class="uploadvideo"> 
+  <form id="uploadForm" action="wp-admin/admin-ajax.php?action=upload_to_s3" method="post" enctype="multipart/form-data">
+    <ul>
+      <li>Full Name</li>
+      <li> <input type="text" size="30" name="fullname"></li>
+      <li>Email</li>
+      <li><input type="text" size="30" name="email"></li>
+      <li>Youtube Username:</li>
+      <li><input type="text" size="30" name="ytusername"></li>
+      <li>Animal pet name:</li>
+      <li><input type="text" size="30" name="petname"></li>
+      <li>I am 18 or older : <input type="checkbox" name="age"></li>
+      <li>Comments:</li>
+      <li><textarea name="comment" id="Message" cols="30" wrap="virtual" rows="3"></textarea></li>
+      <li><input type="file" size="60" name="Filedata" id="inputVideo"></li>
+      <li><input type="submit" value="Ajax File Upload" id="uploadBtn"></li>
+    </ul>
+  </form>
+   
+  <div id="progress">
         <div id="bar"></div>
         <div id="percent">0%</div >
+  </div>
+  <div id="message"></div>
 </div>
-<br/>
- 
-<div id="message"></div>
-<script>
-$(document).ready(function()
-{
- 
-    var options = { 
-    beforeSend: function() 
-    {
-        $("#progress").show();
-        //clear everything
-        $("#bar").width('0%');
-        $("#message").html("");
-        $("#percent").html("0%");
-    },
-    uploadProgress: function(event, position, total, percentComplete) 
-    {
-        $("#bar").width(percentComplete+'%');
-        
-        console.log(percentComplete);
-        if(percentComplete > 98)
-        {
-          $("#percent").html('Finishing upload');
-          $("#bar").width('99%');
-        }
-        else 
-        {
-          $("#percent").html(percentComplete+'%');
-          $("#bar").width(percentComplete+'%');
-        }
-    },
-    success: function(response) 
-    {
-        $("#bar").width('100%');
-        $("#percent").html('Upload Complete');
- 
-    },
-    complete: function(response) 
-    {
-     console.log(response.responseText);
-     var r = $.parseJSON(response.responseText);
-        if(r.data.msg == "success")
-          $("#message").html("<font color='green'>"+ r.data.msg +"</font>");
-        else
-          $("#message").html("<font color='green'>Upload fail. Please try again</font>");
-    },
-    error: function()
-    {
-        $("#message").html("<font color='red'> ERROR: unable to upload files</font>");
-    }
- 
-    }; 
- 
-     $("#myForm").ajaxForm(options);
- 
-});
-</script>
 
-<style>
-form { display: block; margin: 20px auto; background: #eee; border-radius: 10px; padding: 15px }
-#progress { position:relative; width:400px; border: 1px solid #ddd; padding: 1px; border-radius: 3px; }
-#bar { background-color: #B4F5B4; width:0%; height:20px; border-radius: 3px; }
-#percent { position:absolute; display:inline-block; top: 0; left: 48%; }
-</style>
-   
   <?php
   }
 

@@ -62,14 +62,12 @@ jQuery(document).ready(function()
         jQuery("#bar").width('0%');
         jQuery("#message").html("");
         jQuery("#percent").html("0%");
-
-        
+        jQuery("#progress").show();
     },
     uploadProgress: function(event, position, total, percentComplete) 
     {
         jQuery("#bar").width(percentComplete+'%');
         
-        console.log(percentComplete);
         if(percentComplete > 98)
         {
           jQuery("#percent").html('99%');
@@ -90,7 +88,6 @@ jQuery(document).ready(function()
     },
     complete: function(response) 
     {
-     console.log(response.responseText);
      var r = jQuery.parseJSON(response.responseText);
         if(r.data.msg == "success")
           jQuery("#message").html("<font color='green'>Upload Completed</font>");

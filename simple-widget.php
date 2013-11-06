@@ -1,10 +1,10 @@
 <?php
 /**
- * Plugin Name: A simple Widget2
- * Description: A widget that displays authors name.
+ * Plugin Name: s3-upload-plugin
+ * Description: A widget that lets user upload images, videos to an S3 bucket
  * Version: 0.1
- * Author: Bilal Shaheen
- * Author URI: http://gearaffiti.com/about
+ * Author: Hanzen Lim
+ * 
  */
 
 require_once dirname( __FILE__ ) . '/aws/aws-sdk-php/vendor/autoload.php';
@@ -13,15 +13,14 @@ use Aws\S3\Exception\S3Exception;
 use Aws\S3\S3Client;
 use Aws\S3\Model\AcpBuilder;
 
-add_action( 'widgets_init', 'my_widget' );
+add_action( 'widgets_init', 's3_upload_widget' );
 
 
-
-function my_widget() {
-  register_widget( 'MY_Widget' );
+function s3_upload_widget() {
+  register_widget( 's3_widget' );
 }
 
-class MY_Widget extends WP_Widget {
+class s3_widget extends WP_Widget {
   static function cds_log($text)
      {
       $when = date('Y-m-d H:i:s',time());
@@ -31,19 +30,57 @@ class MY_Widget extends WP_Widget {
       fclose($fyle);
     }
 
-  function MY_Widget() 
+  function s3_widget() 
   {
-    $widget_ops = array( 'classname' => 'example', 'description' => __('A widget that displays the authors name ', 'example') );
+    $widget_ops = array( 'classname' => 's3widget', 'description' => __('Uploade media files to an s3 bucket', 'example') );
     
-    $control_ops = array( 'width' => 300, 'height' => 350, 'id_base' => 'example-widget' );
+    $control_ops = array( 'width' => 300, 'height' => 350, 'id_base' => 's3-widget' );
     
-    $this->WP_Widget( 'example-widget', __('Example Widget', 'example'), $widget_ops, $control_ops );
+    $this->WP_Widget( 's3-widget', __('s3 upload widget', 's3widget'), $widget_ops, $control_ops );
 
-    add_action('init', array($this, 'widget_init') );
+    add_action('init', array($this, 'widget_init'));
     add_action( 'wp_ajax_nopriv_upload_to_s3', array($this, 'upload_to_s3'), 1 );
+    add_action( 'wp_ajax_upload_to_s3', array($this, 'upload_to_s3'), 1 );
 
-    //add meta box in S3 post
+
+    //add meta box in S3 custom post
     add_action( 'add_meta_boxes', array($this, 's3_meta_box_init') );
+  }
+
+  function widget_init()
+  {
+    wp_register_style( 'mediaStylesheet', plugins_url('css/cds-media.css', __FILE__) );
+    wp_enqueue_style( 'mediaStylesheet' );
+
+    wp_register_style( 'uploadStylesheet', plugins_url('css/upload.css', __FILE__) );
+    wp_enqueue_style( 'uploadStylesheet' );
+
+    wp_enqueue_script( 'formUpload', plugins_url('js/form.js', __FILE__), array(), '1.0.0', true );
+    wp_enqueue_script( 'uploadjs', plugins_url('js/upload.js', __FILE__), array(), '1.0.0', true );
+
+    register_post_type( 's3videos',
+    array(
+        'labels' => array(
+          'name' => __( 'S3 Videos Uploaded' ),
+          'singular_name' => __( 'S3 Videos' )
+        ),
+      'public' => true,
+      'has_archive' => true,
+      )
+    );
+
+    $args = array('name'=>'S3 Upload',
+            'id'=>'s3-upload',
+            'description' => 'Upload any media to s3 bucket',
+            'before_widget' => '<div class="widget">',
+            'after_widget' => '</div>',
+            'before_title' => '',
+            'after_title' => '');
+    register_sidebar($args);
+
+    //remove editor for s3videos post
+    remove_post_type_support('s3videos', 'editor');
+
   }
 
   function s3_meta_box_init()
@@ -74,8 +111,6 @@ class MY_Widget extends WP_Widget {
     $fileurl = get_post_meta( $post->ID, '_s3_fileurl', true );
     $comment = get_post_meta( $post->ID, '_s3_comment', true );
 
-
-
     ?>
     <div>
         <h4>Full name: <?php echo $fullname; ?></h4>
@@ -89,70 +124,20 @@ class MY_Widget extends WP_Widget {
     <?php
   }
 
-  function widget_init(){
-    wp_register_style( 'mediaStylesheet', plugins_url('css/cds-media.css', __FILE__) );
-    wp_enqueue_style( 'mediaStylesheet' );
-
-    wp_register_style( 'uploadStylesheet', plugins_url('css/upload.css', __FILE__) );
-    wp_enqueue_style( 'uploadStylesheet' );
-
-    wp_enqueue_script( 'formUpload', plugins_url('js/form.js', __FILE__), array(), '1.0.0', true );
-    wp_enqueue_script( 'uploadjs', plugins_url('js/upload.js', __FILE__), array(), '1.0.0', true );
-
-    register_post_type( 's3videos',
-    array(
-        'labels' => array(
-          'name' => __( 'S3 Videos Uploaded' ),
-          'singular_name' => __( 'S3 Videos' )
-        ),
-      'public' => true,
-      'has_archive' => true,
-      )
-    );
-
-    $args = array('name'=>'CDS Upload',
-            'id'=>'cds-upload',
-            'description' => 'Upload CDS Video to MC Backend',
-            'before_widget' => '<div class="widget">',
-            'after_widget' => '</div>',
-            'before_title' => '',
-            'after_title' => '');
-    register_sidebar($args);
-
-    //remove editor for s3videos post
-    remove_post_type_support('s3videos', 'editor');
-
-  }
-
   function upload_to_s3()
   {
-    self::cds_log($_POST["fullname"]);
-    self::cds_log($_POST["ytusername"]);
-    self::cds_log($_POST["email"]);
-
     $aws = Aws::factory(dirname( __FILE__ ) . '/aws/aws-config.php');
     $client = $aws->get('S3');
     $msg = array();
 
-      // $client = S3Client::factory(array(
-      //   'key' => 'AKIAIFCPGC4N3CVFU2KA',
-      //   'secret' => 'pUFnEXFPX5gLDeNKOQ/lLZMNg1sDSIdXxMJccR3Q',
-      // ));
-
-      // $handle = fopen('/tmp/sample_mpeg4.mp4', 'r');
-      // var_dump($handle);die;
-
-
-      // Upload a publicly accessible file. The file size, file type, and MD5 hash are automatically calculated by the SDK
-      
+      // Upload a publicly accessible file. The file size, file type, and MD5 hash are automatically calculated by the SDK     
       try {
           $result = $client->putObject(array(
               'Bucket' => 'cds-campaign',
               'Key'    => $_FILES["Filedata"]["name"],
-              // 'Body'   => fopen('/tmp/sample_mpeg4.mp4', 'r'),
               'Body'   => fopen($_FILES["Filedata"]["tmp_name"], 'r'),
-              // 'SourceFile' => $_FILES["Filedata"]["tmp_name"],
-              'ACL'    => 'public-read',
+              'ACL'    => 'private',
+
           ));
        self::cds_log('result::' . $result["ObjectURL"]);
 
@@ -175,21 +160,17 @@ class MY_Widget extends WP_Widget {
         update_post_meta( $post_id, '_s3_comment', $_POST["comment"]);
 
 
-      } catch (S3Exception $e) {
+      } catch (S3Exception $e) 
+      {
         self::cds_log($e);
         self::cds_log('error s3 putobject');
         $msg["error"] = "S3 Exception";
-        // echo "There was an error uploading the file.\n";
-      } catch(Exception $e){
+      } catch(Exception $e)
+      {
         $msg["error"] = "exception";
       }
 
-      // $msg = 'success';
-      // $msg = $_GET['filename'];
-      // $msg["filename"] = $_GET['filename']["size"];
       $msg["msg"] = "success";
-      // $msg["handle"] = fopen($_FILES["Filedata"]["tmp_name"], r);
-      // $msg = json_encode($_FILES["Filedata"]["tmp_name"]);
       wp_send_json_success( $msg );
       unlink($_FILES["Filedata"]["name"]);   
   }
@@ -219,7 +200,7 @@ class MY_Widget extends WP_Widget {
       <li>Comments:</li>
       <li><textarea name="comment" id="Message" cols="30" wrap="virtual" rows="3"></textarea></li>
       <li><input type="file" size="60" name="Filedata" id="inputVideo"></li>
-      <li><input type="submit" value="Ajax File Upload" id="uploadBtn"></li>
+      <li><input type="submit" value="Submit" id="uploadBtn"></li>
     </ul>
   </form>
    
@@ -234,45 +215,22 @@ class MY_Widget extends WP_Widget {
   }
 
   //Update the widget 
-   
-  function update( $new_instance, $old_instance ) {
+  function update( $new_instance, $old_instance ) 
+  {
     $instance = $old_instance;
-
+    
     //Strip tags from title and name to remove HTML 
     $instance['title'] = strip_tags( $new_instance['title'] );
     $instance['name'] = strip_tags( $new_instance['name'] );
     $instance['show_info'] = $new_instance['show_info'];
 
     return $instance;
+  return $instance;
   }
-
   
-  function form( $instance ) {
+  function form( $instance ) 
+  {
 
-    //Set up some default widget settings.
-    $defaults = array( 'title' => __('Example', 'example'), 'name' => __('Bilal Shaheen', 'example'), 'show_info' => true );
-    $instance = wp_parse_args( (array) $instance, $defaults ); ?>
-
-    //Widget Title: Text Input.
-    <p>
-      <label for="<?php echo $this->get_field_id( 'title' ); ?>"><?php _e('Title:', 'example'); ?></label>
-      <input id="<?php echo $this->get_field_id( 'title' ); ?>" name="<?php echo $this->get_field_name( 'title' ); ?>" value="<?php echo $instance['title']; ?>" style="width:100%;" />
-    </p>
-
-    //Text Input.
-    <p>
-      <label for="<?php echo $this->get_field_id( 'name' ); ?>"><?php _e('Your Name:', 'example'); ?></label>
-      <input id="<?php echo $this->get_field_id( 'name' ); ?>" name="<?php echo $this->get_field_name( 'name' ); ?>" value="<?php echo $instance['name']; ?>" style="width:100%;" />
-    </p>
-
-    
-    //Checkbox.
-    <p>
-      <input class="checkbox" type="checkbox" <?php checked( $instance['show_info'], true ); ?> id="<?php echo $this->get_field_id( 'show_info' ); ?>" name="<?php echo $this->get_field_name( 'show_info' ); ?>" /> 
-      <label for="<?php echo $this->get_field_id( 'show_info' ); ?>"><?php _e('Display info publicly?', 'example'); ?></label>
-    </p>
-
-  <?php
   }
 }
 

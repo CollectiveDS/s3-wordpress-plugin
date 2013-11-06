@@ -20,12 +20,13 @@
     margin-top: 10px;
 }
 
-#progress { 
+#progress {
+    display: none;
     position:relative; 
-    width:400px; border: 
-    1px solid #ddd; padding:
-     1px; 
-     border-radius: 3px; 
+    width:400px;
+    border: 1px solid #ddd; 
+    padding: 1px; 
+    border-radius: 3px; 
 }
 
 #bar { 

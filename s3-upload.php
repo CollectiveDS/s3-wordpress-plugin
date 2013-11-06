@@ -32,8 +32,8 @@ class s3_widget extends WP_Widget {
       fclose($fyle);
     }
 
-  private $recaptcha_public_key = "6Lcz1OkSAAAAACIhrcjwOYC8_0oJhXbevF4OKUsK";
-  private $recapthca_private_key = "6Lcz1OkSAAAAADBn_jQH20nYwNciU48vOIxdAW_X";
+  private $recaptcha_public_key = "google-recaptcha-public-key";
+  private $recapthca_private_key = "google-recaptcha-private-key";
 
   function s3_widget() 
   {
@@ -85,7 +85,6 @@ class s3_widget extends WP_Widget {
 
     //remove editor for s3videos post
     remove_post_type_support('s3videos', 'editor');
-
   }
 
   function s3_meta_box_init()
@@ -151,7 +150,7 @@ class s3_widget extends WP_Widget {
       // Upload a publicly accessible file. The file size, file type, and MD5 hash are automatically calculated by the SDK     
       try {
           $result = $client->putObject(array(
-              'Bucket' => 'cds-campaign',
+              'Bucket' => $_GET["bname"],
               'Key'    => $_FILES["Filedata"]["name"] . '-' . time(),
               'Body'   => fopen($_FILES["Filedata"]["tmp_name"], 'r'),
               'ACL'    => 'private',
@@ -198,13 +197,11 @@ class s3_widget extends WP_Widget {
     extract( $args );
 
     //Our variables from the widget settings.
-    $title = apply_filters('widget_title', $instance['title'] );
-    $name = $instance['name'];
-    $show_info = isset( $instance['show_info'] ) ? $instance['show_info'] : false;
+    $s3bucket = apply_filters('widget_title', $instance['title'] );
 
     ?>
 <div class="uploadvideo"> 
-  <form id="uploadForm" action="wp-admin/admin-ajax.php?action=upload_to_s3" method="post" enctype="multipart/form-data">
+  <form id="uploadForm" action="wp-admin/admin-ajax.php?action=upload_to_s3&bname=<?php echo $s3bucket; ?>"  method="post" enctype="multipart/form-data">
     <ul>
       <li>Full Name</li>
       <li> <input type="text" size="30" name="fullname"></li>
@@ -241,16 +238,23 @@ class s3_widget extends WP_Widget {
     
     //Strip tags from title and name to remove HTML 
     $instance['title'] = strip_tags( $new_instance['title'] );
-    $instance['name'] = strip_tags( $new_instance['name'] );
-    $instance['show_info'] = $new_instance['show_info'];
-
-    return $instance;
   return $instance;
   }
   
   function form( $instance ) 
   {
-
+    if ( isset( $instance[ 'title' ] ) ) {
+      $title = $instance[ 'title' ];
+    }
+    else {
+      $title = __( 'New title', 'text_domain' );
+    }
+    ?>
+    <p>
+    <label for="<?php echo $this->get_field_id( 'title' ); ?>"><?php _e( 'S3 bucket name' ); ?></label> 
+    <input class="widefat" id="<?php echo $this->get_field_id( 'title' ); ?>" name="<?php echo $this->get_field_name( 'title' ); ?>" type="text" value="<?php echo esc_attr( $title ); ?>" />
+    </p>
+    <?php 
   }
 }
 

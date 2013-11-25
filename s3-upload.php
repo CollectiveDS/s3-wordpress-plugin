@@ -25,7 +25,7 @@ function s3_upload_widget() {
 class s3_widget extends WP_Widget {
 
   private $recaptcha_public_key;
-  private $recapthca_private_key;
+  private $recaptcha_private_key;
 
   function s3_widget() 
   {
@@ -127,7 +127,7 @@ class s3_widget extends WP_Widget {
   function upload_to_s3()
   {
     //check recaptcha
-    $resp = recaptcha_check_answer ($this->recapthca_private_key,
+    $resp = recaptcha_check_answer ($this->recaptcha_private_key,
                                 $_SERVER["REMOTE_ADDR"],
                                 $_POST["recaptcha_challenge_field"],
                                 $_POST["recaptcha_response_field"]);

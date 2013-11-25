@@ -173,10 +173,10 @@ class s3_widget extends WP_Widget {
       $msg["msg"] = "success";
       } catch (S3Exception $e) 
       {
-        $msg["msg"] = "S3 Exception";
+        $msg["msg"] = $e->getMessage();
       } catch(Exception $e)
       {
-        $msg["msg"] = "exception";
+        $msg["msg"] = $e->getMessage();
       }
 
       wp_send_json_success( $msg );

@@ -12,7 +12,7 @@ Prerequisite:
 Installation/Use:
 1. Upload wordpress-plugin-s3 folder to plugins folder
 
-2. Activate plugi
+2. Activate plugin
 
 3. Go to Appearance->Widgets
 
@@ -28,14 +28,21 @@ Adding the plugin programmatically to wordpress
 
 1.0.1
 Minor Updates
+
   -Clean up some unused code
+  
   -Create google recaptcha config file
+  
 
 1.0
 Initial Release
+
   Features:
+  
   -Upload videos to a s3 bucket
+  
   -s3 bucket name configurable 
+  
   -Google recaptcha
 
 

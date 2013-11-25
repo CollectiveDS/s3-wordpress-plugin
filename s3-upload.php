@@ -23,20 +23,16 @@ function s3_upload_widget() {
 }
 
 class s3_widget extends WP_Widget {
-  static function cds_log($text)
-     {
-      $when = date('Y-m-d H:i:s',time());
-      $data = "$when:$text\n";
-      $fyle = fopen('/tmp/cds-upload.log','a');
-      fwrite($fyle,$data);
-      fclose($fyle);
-    }
 
-  private $recaptcha_public_key = "google-recaptcha-public-key";
-  private $recapthca_private_key = "google-recaptcha-private-key";
+  private $recaptcha_public_key;
+  private $recapthca_private_key;
 
   function s3_widget() 
   {
+    $r = include dirname(__FILE__) . "/recaptcha-config.php";
+    $this->recaptcha_private_key = $r["private-key"];
+    $this->recaptcha_public_key = $r["public-key"];
+
     $widget_ops = array( 'classname' => 's3widget', 'description' => __('Uploade media files to an s3 bucket', 'example') );
     
     $control_ops = array( 'width' => 300, 'height' => 350, 'id_base' => 's3-widget' );
@@ -151,12 +147,11 @@ class s3_widget extends WP_Widget {
       try {
           $result = $client->putObject(array(
               'Bucket' => $_GET["bname"],
-              'Key'    => $_FILES["Filedata"]["name"] . '-' . time(),
+              'Key'    => time() . '-' .$_FILES["Filedata"]["name"],
               'Body'   => fopen($_FILES["Filedata"]["tmp_name"], 'r'),
               'ACL'    => 'private',
 
           ));
-       self::cds_log('result::' . $result["ObjectURL"]);
 
        //create s3 custom post
        $postarr = array(
@@ -175,19 +170,15 @@ class s3_widget extends WP_Widget {
         update_post_meta( $post_id, '_s3_filename', $_FILES["Filedata"]["name"]);
         update_post_meta( $post_id, '_s3_fileurl', $result["ObjectURL"]);
         update_post_meta( $post_id, '_s3_comment', $_POST["comment"]);
-
-
+      $msg["msg"] = "success";
       } catch (S3Exception $e) 
       {
-        self::cds_log($e);
-        self::cds_log('error s3 putobject');
         $msg["msg"] = "S3 Exception";
       } catch(Exception $e)
       {
         $msg["msg"] = "exception";
       }
 
-      $msg["msg"] = "success";
       wp_send_json_success( $msg );
       unlink($_FILES["Filedata"]["name"]);   
   }

@@ -25,6 +25,7 @@ Adding the plugin programmatically to wordpress
 
 3. Drag "s3 upload widget" to S3 Upload Widget Area
 
+CHANGELOG
 
 1.0.1
 Minor Updates

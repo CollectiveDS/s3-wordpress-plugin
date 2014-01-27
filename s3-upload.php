@@ -2,7 +2,7 @@
 /**
  * Plugin Name: s3-upload-plugin
  * Description: A widget that lets user upload images, videos to an S3 bucket
- * Version: 0.1
+ * Version: 1.0.1
  * Author: Hanzen Lim
  * 
  */

@@ -5,9 +5,9 @@ Description: Wordpress plugin that lets user uploads videos to a s3 bucket
 Requires: php 5.3 or later
 
 ##Installation/Use:
-1:  Needs api key, secret key in aws/aws-config.php
+1: Need api key, secret key in aws/aws-config.php
 
-2: Needs google recaptcha public and private keys in recaptcha-config.php
+2: Need google recaptcha public and private keys in recaptcha-config.php
 
 3: Upload wordpress-plugin-s3 folder to plugins folder
 

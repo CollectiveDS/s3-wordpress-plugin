@@ -37,7 +37,7 @@ class s3_widget extends WP_Widget {
     
     $control_ops = array( 'width' => 300, 'height' => 350, 'id_base' => 's3-widget' );
     
-    $this->WP_Widget( 's3-widget', __('s3 upload widget', 's3widget'), $widget_ops, $control_ops );
+    parent::__construct( 's3-widget', __('s3 upload widget', 's3widget'), $widget_ops, $control_ops );
 
     add_action('init', array($this, 'widget_init'));
     add_action( 'wp_ajax_nopriv_upload_to_s3', array($this, 'upload_to_s3'), 1 );
